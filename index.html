@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>XMRig Frontend</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" rel="stylesheet">
+  </link>
+  <link href="https://cdn.jsdelivr.net/npm/open-iconic@1.1.1/font/css/open-iconic-bootstrap.min.css" rel="stylesheet">
+  </link>
+</head>
+<body id="body">
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-4 ">
+  <a class="navbar-brand  d-none" href="#">{{worker_id}} (xmrig v{{version}}) </a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <button type="button" class="btn btn-outline-primary border-0 mr-10" data-toggle="modal" data-target="#serverModal">
+      <i class="oi oi-plus"></i> Add server
+    </button>
+    <div class="dropdown ">
+      <a class="btn btn-outline-primary dropdown-toggle border-0" href="#" role="button" id="dropdownMenuLink"
+         data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <i class="oi oi-list"></i> Servers
+      </a>
+
+      <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+
+      </div>
+    </div>
+    <div class="mr-auto"></div>
+    <div class="row">
+      <button class="align-middle btn btn-outline-primary d-block col col-md-6 border-0" id="refresh">
+        <span class="oi oi-reload" title="reload" aria-hidden="true"></span>
+        <span class="d-lg-none d-md-inline">refresh</span>
+      </button>
+      <button class="align-middle btn btn-outline-primary d-block col col-md-6 border-0" id="toggle">
+        <span class="play d-none">
+          <span class="oi oi-media-play" title="resume" aria-hidden="true"></span>
+          <span class="d-lg-none d-md-inline">play</span>
+        </span>
+        <span class="pause">
+          <span class="oi oi-media-pause" title="pause" aria-hidden="true"></span>
+          <span class="d-lg-none d-md-inline">pause</span>
+        </span>
+      </button>
+    </div>
+
+  </div>
+</nav>
+
+  <div class="container" id="container">
+  </div>
+
+<div class="modal fade" id="serverModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Add server</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="server_input">Server</label>
+          <input type="text" class="form-control" id="server_input" aria-describedby="server_input"
+                 placeholder="Enter server">
+          <small id="server_help" class="form-text text-muted">In format: http[s]://&lt;server&gt;[:port]</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="add_server">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script id="wrap-template" type="text/x-handlebars-template">
+  <div class="row">
+    <div class="col">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5>
+            <span class="text-uppercase">{{kind}}</span> Pool {{connection.pool}}
+            <span class="float-right">{{ping connection.ping}}{{failures connection.failures}}</span>
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            {{#ifCond kind '==' 'cpu'}}
+            {{cpu.brand}}
+            <sup>
+              {{#if cpu.aes}}
+              <span class="badge badge-primary">AES-NI</span>
+              {{/if}}
+              {{#if cpu.x64}}
+              <span class="badge badge-primary">x64</span>
+              {{/if}}
+            </sup>
+            {{/ifCond}}
+            {{#ifCond kind '==' 'nvidia'}}
+            <ul class="list-group">
+              {{#each health}}
+              <li class="list-group-item">
+                #{{@index}} {{this.name}}
+                {{temp this.temp}}
+                {{fan this.fan}}
+              </li>
+              {{/each}}
+            </ul>
+            {{/ifCond}}
+          </div>
+          <div class="card-text">
+            {{> results}}
+            {{> hashrates}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</script>
+
+<script id="results-partial" type="text/x-handlebars-template">
+  <div class="row  mb-4">
+    <div class="col">
+      {{card 'Difficulty' results.diff_current}}
+    </div>
+    <div class="col">
+      {{card 'Avg Time' results.avg_time}}
+    </div>
+    <div class="col">
+      {{card 'Total hashes' results.hashes_total}}
+    </div>
+  </div>
+  {{progressbar results}}
+</script>
+
+<script id="hashrate-partial" type="text/x-handlebars-template">
+  <table class="table text-center">
+    <thead>
+    <tr>
+      <th scope="col" style="width: 10%">Thread #</th>
+      <th scope="col" style="width: 30%">10s</th>
+      <th scope="col" style="width: 30%">60s</th>
+      <th scope="col" style="width: 30%">15m</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each hashrate.threads}}
+    <tr>
+      <th class="text-right">{{@index}}</th>
+      {{#each this}}
+      <td>{{this}}</td>
+      {{/each}}
+    </tr>
+    {{/each}}
+    <tr>
+      <th class="text-right">Total</th>
+      {{#each hashrate.total}}
+      <td>{{this}}</td>
+      {{/each}}
+    </tr>
+    <tr>
+      <th class="text-right">Highest</th>
+      <td></td>
+      <td></td>
+      <td>{{hashrate.highest}}</td>
+    </tr>
+    </tbody>
+  </table>
+</script>
+
+<script id="progressbar-template" type="text/x-handlebars-template">
+  <div class="progress">
+    <div class="progress-bar bg-{{color}}" role="progressbar" style="width: {{ratio}}%" aria-valuenow="{{ratio}}"
+         aria-valuemin="0" aria-valuemax="{{ratio}}">
+      Accepted: {{ratio}}%
+    </div>
+  </div>
+</script>
+<script id="badge-template" type="text/x-handlebars-template">
+  <span class="badge badge-{{color}}">{{text}}</span>
+</script>
+
+<script id="card-template" type="text/x-handlebars-template">
+  <div class="card border-primary text-primary">
+    <div class="card-body p-2">
+      <span class="text-muted">
+        {{title}}
+      </span>
+      <span class="float-md-right d-block d-md-inline text-center">{{text}}</span>
+    </div>
+  </div>
+</script>
+</body>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<script type="text/javascript">
+    // Feature test
+    var hasStorage = (function () {
+        try {
+            localStorage.setItem('foo', 'bar');
+            localStorage.removeItem('foo');
+            return true;
+        } catch (exception) {
+            return false;
+        }
+    }());
+
+
+    if (!hasStorage) {
+        $("#container").append($('<div>').addClass('alert alert-danger').text('You should use a modern browser'));
+    }
+    if (!localStorage.getItem('mineServers')) {
+        localStorage.setItem('mineServers', JSON.stringify([]));
+    }
+
+    var running;
+    var navbar = $('.navbar');
+    var badge_template = Handlebars.compile($("#badge-template").html());
+    var wrap_template = Handlebars.compile($('#wrap-template').html());
+    var navbar_template = Handlebars.compile(navbar.html());
+    var progress_template = Handlebars.compile($('#progressbar-template').html());
+    var card_template = Handlebars.compile($('#card-template').html());
+
+
+    Handlebars.registerPartial('hashrates', $('#hashrate-partial').html());
+    Handlebars.registerPartial('results', $('#results-partial').html());
+
+    Handlebars.registerHelper("math", function (lvalue, operator, rvalue, options) {
+        lvalue = parseFloat(lvalue);
+        rvalue = parseFloat(rvalue);
+
+        return {
+            "+": lvalue + rvalue,
+            "-": lvalue - rvalue,
+            "*": lvalue * rvalue,
+            "/": lvalue / rvalue || 0,
+            "%": lvalue % rvalue
+        }[operator];
+    });
+
+    Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
+
+        switch (operator) {
+            case '==':
+                return (v1 == v2) ? options.fn(this) : options.inverse(this);
+            case '===':
+                return (v1 === v2) ? options.fn(this) : options.inverse(this);
+            case '!=':
+                return (v1 != v2) ? options.fn(this) : options.inverse(this);
+            case '!==':
+                return (v1 !== v2) ? options.fn(this) : options.inverse(this);
+            case '<':
+                return (v1 < v2) ? options.fn(this) : options.inverse(this);
+            case '<=':
+                return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+            case '>':
+                return (v1 > v2) ? options.fn(this) : options.inverse(this);
+            case '>=':
+                return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+            case '&&':
+                return (v1 && v2) ? options.fn(this) : options.inverse(this);
+            case '||':
+                return (v1 || v2) ? options.fn(this) : options.inverse(this);
+            default:
+                return options.inverse(this);
+        }
+    });
+
+    Handlebars.registerHelper("ping", function (ping, options) {
+        ping = parseInt(ping);
+        var color = 'success';
+        if (ping > 50) {
+            color = 'warning';
+        }
+        if (ping > 150) {
+            color = 'danger';
+        }
+        return new Handlebars.SafeString(badge_template({color: color, text: ping + 'ms'}));
+    });
+
+    Handlebars.registerHelper("fan", function (fan, options) {
+        fan = parseInt(fan);
+        var color = 'success';
+        if (fan > 40) {
+            color = 'warning';
+        }
+        if (fan > 70) {
+            color = 'danger';
+        }
+
+        return new Handlebars.SafeString(badge_template({color: color, text: 'fan: ' + fan + '%'}));
+    });
+
+    Handlebars.registerHelper("temp", function (temp, options) {
+        temp = parseInt(temp);
+        var color = 'success';
+
+        if (temp > 50) {
+            color = 'warning';
+        }
+        if (temp > 80) {
+            color = 'danger';
+        }
+
+        return new Handlebars.SafeString(badge_template({color: color, text: temp + "℃"}));
+    });
+
+    Handlebars.registerHelper("failures", function (fails, options) {
+        fails = parseInt(fails);
+        var color = 'success';
+        if (fails > 10) {
+            color = 'warning';
+        }
+        if (fails > 150) {
+            color = 'danger';
+        }
+
+        return new Handlebars.SafeString(badge_template({color: color, text: 'fails: ' + fails}));
+    });
+
+    Handlebars.registerHelper("progressbar", function (results, options) {
+        var ratio = ((results.shares_good / results.shares_total) * 100) || 0,
+            color = 'success';
+
+        if (ratio < 85) {
+            color = 'warning';
+        }
+
+        if (ratio < 25) {
+            color = 'danger';
+        }
+        return new Handlebars.SafeString(progress_template({color: color, ratio: ratio}));
+    });
+
+    Handlebars.registerHelper("card", function (title, text, options) {
+        return new Handlebars.SafeString(card_template({title: title, text: text}));
+    });
+    var addServer = function () {
+        var serverInput = $("#server_input");
+
+        var new_server = serverInput.val();
+        if (new_server.trim() === '') {
+            serverInput.addClass('border-danger');
+            return;
+        }
+
+        serverInput.removeClass('border-danger');
+
+        if (!localStorage.getItem('mineServers')) {
+            localStorage.setItem('mineServers', JSON.stringify([]));
+        }
+
+        var servers = JSON.parse(localStorage.getItem('mineServers'));
+
+        if(servers.indexOf(new_server) < 0){
+            servers.push(new_server);
+            localStorage.setItem('mineServers', JSON.stringify(servers));
+            refreshData();
+        }
+
+        $(this).closest('.modal').modal('hide');
+    };
+
+    var removeServer = function () {
+        var server = $(this).text().trim();
+        var servers = JSON.parse(localStorage.getItem('mineServers'));
+        var indexOf = servers.indexOf(server);
+        if (indexOf >= 0) {
+             servers.splice(indexOf, 1);
+            localStorage.setItem('mineServers', JSON.stringify(servers));
+            refreshData();
+        }
+    };
+
+    var refreshData = function (first) {
+        var servers = JSON.parse(localStorage.getItem('mineServers'));
+        $('.dropdown-menu').html('');
+        $.each(servers, function (k, server) {
+            $('.dropdown-menu').append(
+                $('<a>').addClass('dropdown-item').append(
+                    $('<i>').addClass('oi oi-trash'),
+                    $('<span>').addClass('mr-auto').text(server)
+                ).on('click', removeServer)
+            );
+
+
+
+            $.get(server, function (data) {
+                var key = k + '_' + data.kind.toLowerCase();
+                if (!$("#" + key).length) {
+                    $("#container").append($("<div>").attr('id', key));
+                }
+
+                $("#" + key).html(wrap_template(data));
+                if (first) {
+                    navbar.html(navbar_template(data));
+                    navbar.children('.navbar-brand').removeClass('d-none');
+                }
+
+                first = false;
+            }, 'json');
+        });
+    };
+
+    refreshData(true);
+    running = setInterval(refreshData, 1000);
+
+    $(".navbar").on('click', '#refresh', function () {
+        refreshData();
+    }).on('click', '#toggle', function () {
+        if (running) {
+            clearInterval(running);
+            running = false;
+        } else {
+            running = setInterval(refreshData, 1000);
+        }
+        $(this).find(".play").toggleClass('d-none');
+        $(this).find(".pause").toggleClass('d-none');
+    });
+
+    $("#add_server").on('click',addServer);
+
+</script>
+
+</html>
