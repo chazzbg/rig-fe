@@ -5,6 +5,6 @@ XMRig is high performance Monero (XMR) CPU miner, with the official full Windows
 
 
 
-RIG FE is a simple frontend for xmrig
+RIG FE is a simple API client for xmrig
 
 You can use it directly on https://chazzbg.github.io/rig-fe/ if you can expose your miner with https connection
